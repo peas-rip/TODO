@@ -23,15 +23,46 @@ exports.createTodo = async (req, res) => {
     }
 };
 exports.getAllTodos = async (req, res) => {
-    try{
-        const todos=await Todo.find({owner:req.user._id}).sort({createdAt:-1});
-        res.status(200).json({todos});
-    } catch(err)
-    {
-        console.log("Fetching todos failed",err);
-        res.status(500).json({message:"Internal Server Error"});
-    }
+  try {
+    // Pagination
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+    const skip = (page - 1) * limit;
+
+    // Sorting
+    const sortBy = req.query.sortBy || "createdAt";
+    const order = req.query.order === "asc" ? 1 : -1;
+
+    // Count total todos
+    const totalTodos = await Todo.countDocuments({
+      owner: req.user._id
+    });
+
+    // Fetch todos with pagination + sorting
+    const todos = await Todo.find({ owner: req.user._id })
+      .sort({ [sortBy]: order })
+      .skip(skip)
+      .limit(limit);
+
+    const totalPages = Math.ceil(totalTodos / limit);
+
+    res.status(200).json({
+      page,
+      limit,
+      totalTodos,
+      totalPages,
+      sortBy,
+      order: order === 1 ? "asc" : "desc",
+      todos
+    });
+
+  } catch (err) {
+    console.error("Fetching todos failed", err);
+    res.status(500).json({ message: "Internal Server Error" });
+  }
 };
+
+
 exports.getTodoById = async (req, res) => {
     try{
     const todo=await Todo.findOne({_id:req.params.id,owner:req.user._id});
